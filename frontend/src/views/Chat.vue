@@ -89,6 +89,11 @@
                 {{ chatStore.currentRoom.type === '1:1' ? '1:1 채팅' : `그룹 채팅 (${chatStore.currentRoom.member_count}명)` }}
               </div>
             </div>
+            <div class="chat-actions">
+              <button class="leave-button" @click="confirmLeaveRoom">
+                채팅방 삭제
+              </button>
+            </div>
           </div>
         </div>
         
@@ -157,10 +162,43 @@
     <div v-if="showNewChatModal" class="modal-overlay" @click="closeNewChatModal">
       <div class="modal" @click.stop>
         <div class="modal-header">
-          <h3>새 채팅 시작</h3>
+          <div class="modal-tabs">
+            <button
+              :class="['modal-tab', { active: modalMode === 'direct' }]"
+              @click="switchModalMode('direct')"
+            >
+              1:1 채팅
+            </button>
+            <button
+              :class="['modal-tab', { active: modalMode === 'group' }]"
+              @click="switchModalMode('group')"
+            >
+              그룹 채팅
+            </button>
+          </div>
           <button @click="closeNewChatModal" class="btn-close">✕</button>
         </div>
         <div class="modal-body">
+          <div v-if="modalMode === 'group'" class="group-form">
+            <label class="form-label">그룹 제목</label>
+            <input
+              v-model="groupTitle"
+              type="text"
+              placeholder="그룹 이름을 입력하세요"
+              class="form-control"
+            />
+            <div class="selected-members" v-if="selectedMembers.length">
+              <span
+                class="member-chip"
+                v-for="member in selectedMembers"
+                :key="member.id"
+              >
+                {{ member.nickname }}
+                <button @click="toggleMemberSelection(member)">✕</button>
+              </span>
+            </div>
+          </div>
+
           <div class="search-section">
             <input
               v-model="searchQuery"
@@ -176,18 +214,34 @@
               v-for="user in searchResults"
               :key="user.id"
               class="user-item"
-              @click="startDirectChat(user)"
+              @click="modalMode === 'direct' ? startDirectChat(user) : toggleMemberSelection(user)"
             >
               <div class="user-avatar">{{ user.nickname.charAt(0).toUpperCase() }}</div>
               <div class="user-info">
                 <div class="user-name">{{ user.nickname }}</div>
                 <div class="user-email">{{ user.email }}</div>
               </div>
+              <div
+                v-if="modalMode === 'group'"
+                class="checkbox"
+                :class="{ checked: selectedMembers.some(member => member.id === user.id) }"
+              ></div>
             </div>
           </div>
           
-          <div v-else-if="searchQuery && !isSearching" class="no-results">
+  <div v-else-if="searchQuery && !isSearching" class="no-results">
             검색 결과가 없습니다.
+          </div>
+
+          <div v-if="modalMode === 'group'" class="modal-footer">
+            <div class="error-message" v-if="modalError">{{ modalError }}</div>
+            <button
+              class="btn btn-primary"
+              :disabled="isCreatingGroup"
+              @click="createGroupChat"
+            >
+              {{ isCreatingGroup ? '생성 중...' : '그룹 채팅 생성' }}
+            </button>
           </div>
         </div>
       </div>
@@ -214,6 +268,11 @@ const searchResults = ref([])
 const isSearching = ref(false)
 const messagesContainer = ref(null)
 const typingTimer = ref(null)
+const modalMode = ref('direct')
+const groupTitle = ref('')
+const selectedMembers = ref([])
+const modalError = ref('')
+const isCreatingGroup = ref(false)
 
 // 컴퓨티드
 const typingText = computed(() => {
@@ -296,10 +355,58 @@ const startDirectChat = async (user) => {
   }
 }
 
+const toggleMemberSelection = (user) => {
+  const exists = selectedMembers.value.find(member => member.id === user.id)
+  if (exists) {
+    selectedMembers.value = selectedMembers.value.filter(member => member.id !== user.id)
+  } else {
+    selectedMembers.value = [...selectedMembers.value, user]
+  }
+}
+
+const createGroupChat = async () => {
+  modalError.value = ''
+  if (!groupTitle.value.trim()) {
+    modalError.value = '그룹 제목을 입력해주세요.'
+    return
+  }
+  if (selectedMembers.value.length < 2) {
+    modalError.value = '최소 두 명 이상을 선택해야 합니다.'
+    return
+  }
+  try {
+    isCreatingGroup.value = true
+    const room = await chatStore.createGroupRoom(
+      groupTitle.value.trim(),
+      selectedMembers.value.map(member => member.id)
+    )
+    if (room) {
+      await chatStore.setCurrentRoom(room)
+      closeNewChatModal()
+    }
+  } finally {
+    isCreatingGroup.value = false
+  }
+}
+
+const switchModalMode = (mode) => {
+  modalMode.value = mode
+  modalError.value = ''
+  selectedMembers.value = []
+  searchResults.value = []
+  searchQuery.value = ''
+  groupTitle.value = ''
+}
+
 const closeNewChatModal = () => {
   showNewChatModal.value = false
   searchQuery.value = ''
   searchResults.value = []
+  selectedMembers.value = []
+  groupTitle.value = ''
+  modalError.value = ''
+  modalMode.value = 'direct'
+  isCreatingGroup.value = false
 }
 
 const scrollToBottom = () => {
@@ -332,6 +439,24 @@ const formatMessageTime = (timestamp) => {
     hour: '2-digit', 
     minute: '2-digit' 
   })
+}
+
+const confirmLeaveRoom = async () => {
+  if (!chatStore.currentRoom) return
+  const isGroup = chatStore.currentRoom.type === 'group'
+  const message = isGroup
+    ? '이 그룹 채팅을 나가시겠습니까?'
+    : '채팅방을 삭제하면 기존 대화를 다시 볼 수 없습니다. 계속하시겠습니까?'
+
+  if (!window.confirm(message)) return
+
+  const result = await chatStore.leaveRoom(chatStore.currentRoom.id)
+  if (!result.success) {
+    alert(result.message || '채팅방을 삭제할 수 없습니다.')
+    return
+  }
+
+  await chatStore.fetchRooms()
 }
 
 // 라이프사이클
@@ -585,6 +710,26 @@ watch(() => chatStore.currentRoom, () => {
   gap: 12px;
 }
 
+.chat-actions {
+  margin-left: auto;
+}
+
+.leave-button {
+  border: 1px solid #ff6b6b;
+  background: transparent;
+  color: #ff6b6b;
+  padding: 8px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.leave-button:hover {
+  background: #ff6b6b;
+  color: #fff;
+}
+
 .room-members {
   font-size: 14px;
   color: #666;
@@ -758,6 +903,27 @@ watch(() => chatStore.currentRoom, () => {
   justify-content: space-between;
 }
 
+.modal-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.modal-tab {
+  border: none;
+  background: #f1f3f5;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #495057;
+  transition: all 0.2s ease;
+}
+
+.modal-tab.active {
+  background: #007bff;
+  color: #fff;
+}
+
 .modal-header h3 {
   margin: 0;
   color: #333;
@@ -775,6 +941,35 @@ watch(() => chatStore.currentRoom, () => {
   padding: 20px;
   flex: 1;
   overflow-y: auto;
+}
+
+.group-form {
+  margin-bottom: 16px;
+}
+
+.selected-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.member-chip {
+  background: #e7f1ff;
+  color: #0d6efd;
+  padding: 4px 8px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.member-chip button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 }
 
 .search-section {
@@ -800,6 +995,19 @@ watch(() => chatStore.currentRoom, () => {
   background: #f8f9fa;
 }
 
+.checkbox {
+  margin-left: auto;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ced4da;
+  border-radius: 4px;
+}
+
+.checkbox.checked {
+  background: #0d6efd;
+  border-color: #0d6efd;
+}
+
 .user-email {
   font-size: 12px;
   color: #666;
@@ -809,6 +1017,18 @@ watch(() => chatStore.currentRoom, () => {
   text-align: center;
   color: #666;
   padding: 40px 20px;
+}
+
+.modal-footer {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-footer .btn {
+  min-width: 150px;
 }
 
 /* 반응형 */

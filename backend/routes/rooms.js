@@ -365,5 +365,76 @@ router.get('/:roomId', authenticateToken, async (req, res) => {
   }
 });
 
+// 채팅방 삭제(나가기)
+router.delete('/:roomId', authenticateToken, async (req, res) => {
+  const { roomId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const roomResult = await pool.query('SELECT id, type FROM rooms WHERE id = $1', [roomId]);
+    if (roomResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '채팅방을 찾을 수 없습니다.'
+      });
+    }
+
+    const membership = await pool.query(
+      'SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2',
+      [roomId, userId]
+    );
+
+    if (membership.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: '해당 채팅방에 접근할 권한이 없습니다.'
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `DELETE FROM read_messages 
+         WHERE user_id = $1 
+         AND message_id IN (SELECT id FROM messages WHERE room_id = $2)`,
+        [userId, roomId]
+      );
+
+      await client.query(
+        'DELETE FROM room_members WHERE room_id = $1 AND user_id = $2',
+        [roomId, userId]
+      );
+
+      if (roomResult.rows[0].type === 'group') {
+        await client.query(
+          'INSERT INTO messages (room_id, sender_id, type, content) VALUES ($1, $2, $3, $4)',
+          [roomId, userId, 'system', `${req.user.nickname}님이 채팅방을 나갔습니다.`]
+        );
+      }
+
+      await client.query('COMMIT');
+
+      res.json({
+        success: true,
+        message: '채팅방에서 나갔습니다.'
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('채팅방 삭제 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '서버 오류가 발생했습니다.'
+    });
+  }
+});
+
 export default router;
 

@@ -218,6 +218,7 @@ export const useChatStore = defineStore('chat', () => {
       
       if (response.data.success) {
         const room = response.data.data.room
+        room.member_count = room.members ? room.members.length : undefined
         rooms.value.unshift(room)
         return room
       }
@@ -246,6 +247,21 @@ export const useChatStore = defineStore('chat', () => {
   const stopTyping = (roomId) => {
     if (socket.value && socket.value.connected) {
       socket.value.emit('typing_stop', { roomId })
+    }
+  }
+
+  const leaveRoom = async (roomId) => {
+    try {
+      await axios.delete(`/api/rooms/${roomId}`)
+      rooms.value = rooms.value.filter(room => room.id !== roomId)
+      if (currentRoom.value && currentRoom.value.id === roomId) {
+        currentRoom.value = null
+        messages.value = []
+      }
+      return { success: true }
+    } catch (err) {
+      console.error('채팅방 나가기 실패:', err)
+      return { success: false, message: err.response?.data?.message || '채팅방을 나갈 수 없습니다.' }
     }
   }
 
@@ -339,7 +355,8 @@ export const useChatStore = defineStore('chat', () => {
     createGroupRoom,
     setCurrentRoom,
     startTyping,
-    stopTyping
+    stopTyping,
+    leaveRoom
   }
 })
 
