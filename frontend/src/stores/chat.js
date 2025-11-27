@@ -4,6 +4,26 @@ import axios from 'axios'
 import { io } from 'socket.io-client'
 import { useAuthStore } from './auth'
 
+const normalizeMessage = (message, fallbackRoomId) => {
+  if (!message) return null
+
+  return {
+    id: message.id,
+    roomId: message.roomId || message.room_id || fallbackRoomId,
+    type: message.type,
+    content: message.content,
+    createdAt: message.createdAt || message.created_at,
+    sender: message.sender || (message.sender_id
+      ? {
+          id: message.sender_id,
+          nickname: message.sender_nickname,
+          profileImage: message.sender_profile_image
+        }
+      : null),
+    readCount: message.readCount ?? message.read_count ?? 0
+  }
+}
+
 export const useChatStore = defineStore('chat', () => {
   // State
   const socket = ref(null)
@@ -33,6 +53,14 @@ export const useChatStore = defineStore('chat', () => {
     const authStore = useAuthStore()
     
     if (!authStore.token) return
+
+    // 기존 연결이 있다면 정리
+    if (socket.value) {
+      socket.value.removeAllListeners()
+      socket.value.disconnect()
+      socket.value = null
+    }
+
     const socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
     socket.value = io(socketUrl, {
       auth: {
@@ -94,10 +122,14 @@ export const useChatStore = defineStore('chat', () => {
       const response = await axios.get(`/api/messages/room/${roomId}?page=${page}&limit=50`)
       
       if (response.data.success) {
+        const normalizedMessages = response.data.data.messages
+          .map(message => normalizeMessage(message, roomId))
+          .filter(Boolean)
+
         if (page === 1) {
-          messages.value = response.data.data.messages
+          messages.value = normalizedMessages
         } else {
-          messages.value = [...response.data.data.messages, ...messages.value]
+          messages.value = [...normalizedMessages, ...messages.value]
         }
         return response.data.data.pagination
       }
@@ -220,26 +252,29 @@ export const useChatStore = defineStore('chat', () => {
   // 이벤트 핸들러
   const handleNewMessage = (messageData) => {
     // 현재 보고 있는 방의 메시지면 메시지 목록에 추가
-    if (currentRoom.value && currentRoom.value.id === messageData.roomId) {
-      messages.value.push(messageData)
+    const normalized = normalizeMessage(messageData)
+    if (!normalized) return
+
+    if (currentRoom.value && currentRoom.value.id === normalized.roomId) {
+      messages.value.push(normalized)
       
       // 자동으로 읽음 처리 (자신이 보낸 메시지가 아닌 경우)
       const authStore = useAuthStore()
-      if (messageData.sender.id !== authStore.user.id) {
-        markAsRead(messageData.id)
+      if (normalized.sender && normalized.sender.id !== authStore.user.id) {
+        markAsRead(normalized.id)
       }
     }
     
     // 방 목록 업데이트
-    const room = rooms.value.find(r => r.id === messageData.roomId)
+    const room = rooms.value.find(r => r.id === normalized.roomId)
     if (room) {
-      room.last_message = messageData.content
-      room.last_message_time = messageData.createdAt
+      room.last_message = normalized.content
+      room.last_message_time = normalized.createdAt
       
       // 현재 보고 있는 방이 아니면 읽지 않은 메시지 수 증가
-      if (!currentRoom.value || currentRoom.value.id !== messageData.roomId) {
+      if (!currentRoom.value || currentRoom.value.id !== normalized.roomId) {
         const authStore = useAuthStore()
-        if (messageData.sender.id !== authStore.user.id) {
+        if (normalized.sender && normalized.sender.id !== authStore.user.id) {
           room.unread_count = (room.unread_count || 0) + 1
         }
       }
