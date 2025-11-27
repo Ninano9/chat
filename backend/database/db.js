@@ -10,6 +10,9 @@ export const pool = new Pool({
   database: config.database.name,
   user: config.database.user,
   password: config.database.password,
+  ssl: {
+    rejectUnauthorized: false
+  },
   max: 20, // 최대 연결 수
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
