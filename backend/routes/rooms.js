@@ -1,6 +1,7 @@
 import express from 'express';
 import { pool } from '../database/db.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { joinUsersToRoom, leaveUserFromRoom } from '../socket/socketHandler.js';
 
 const router = express.Router();
 
@@ -167,6 +168,8 @@ router.post('/direct', authenticateToken, async (req, res) => {
 
       await client.query('COMMIT');
 
+      joinUsersToRoom(room.id, [currentUserId, targetUserId]);
+
       res.status(201).json({
         success: true,
         message: '1:1 채팅방이 생성되었습니다.',
@@ -259,6 +262,8 @@ router.post('/group', authenticateToken, async (req, res) => {
       );
 
       await client.query('COMMIT');
+
+      joinUsersToRoom(room.id, allMemberIds);
 
       res.status(201).json({
         success: true,
@@ -407,6 +412,7 @@ router.delete('/:roomId', authenticateToken, async (req, res) => {
         'DELETE FROM room_members WHERE room_id = $1 AND user_id = $2',
         [roomId, userId]
       );
+      leaveUserFromRoom(roomId, userId);
 
       if (roomResult.rows[0].type === 'group') {
         await client.query(

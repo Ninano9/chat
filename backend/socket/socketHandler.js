@@ -2,13 +2,14 @@ import { Server } from 'socket.io';
 import { authenticateSocketToken } from '../middleware/auth.js';
 import { pool } from '../database/db.js';
 
+const connectedUsers = new Map();
+let ioInstance = null;
+
 export const initializeSocket = (server, corsOptions) => {
   const io = new Server(server, {
     cors: corsOptions
   });
-
-  // 연결된 사용자들을 저장할 Map
-  const connectedUsers = new Map();
+  ioInstance = io;
 
   // Socket 인증 미들웨어
   io.use(async (socket, next) => {
@@ -30,10 +31,7 @@ export const initializeSocket = (server, corsOptions) => {
     console.log(`✅ 사용자 연결: ${socket.user.nickname} (${socket.user.id})`);
     
     // 연결된 사용자 정보 저장
-    connectedUsers.set(socket.user.id, {
-      socketId: socket.id,
-      user: socket.user
-    });
+    connectedUsers.set(socket.user.id, socket);
 
     // 사용자의 채팅방들에 조인
     joinUserRooms(socket);
@@ -224,4 +222,23 @@ async function handleMarkAsRead(socket, data, io) {
     }
   });
 }
+
+export const joinUsersToRoom = (roomId, userIds = []) => {
+  if (!ioInstance) return;
+
+  userIds.forEach((userId) => {
+    const socket = connectedUsers.get(userId);
+    if (socket) {
+      socket.join(`room_${roomId}`);
+      socket.emit('room_joined', { roomId });
+    }
+  });
+};
+
+export const leaveUserFromRoom = (roomId, userId) => {
+  const socket = connectedUsers.get(userId);
+  if (socket) {
+    socket.leave(`room_${roomId}`);
+  }
+};
 

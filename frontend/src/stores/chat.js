@@ -89,6 +89,10 @@ export const useChatStore = defineStore('chat', () => {
       handleUserTyping(data)
     })
 
+    socket.value.on('room_joined', async () => {
+      await fetchRooms()
+    })
+
     socket.value.on('error', (error) => {
       console.error('Socket 오류:', error)
       error.value = error.message
