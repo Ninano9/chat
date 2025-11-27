@@ -66,7 +66,7 @@ app.get('/', (req, res) => {
 });
 
 // 404 에러 처리
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: '요청한 엔드포인트를 찾을 수 없습니다.'
