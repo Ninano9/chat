@@ -73,3 +73,4 @@ export const authenticateSocketToken = async (token) => {
     throw new Error('토큰 인증에 실패했습니다.');
   }
 };
+

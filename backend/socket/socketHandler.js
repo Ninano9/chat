@@ -222,3 +222,4 @@ async function handleMarkAsRead(socket, data, io) {
     }
   });
 }
+

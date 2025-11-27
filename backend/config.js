@@ -28,3 +28,4 @@ export const config = {
     uploadPath: process.env.UPLOAD_PATH || './uploads'
   }
 };
+

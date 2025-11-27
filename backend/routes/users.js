@@ -80,3 +80,4 @@ router.get('/:userId', authenticateToken, async (req, res) => {
 });
 
 export default router;
+

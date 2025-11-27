@@ -109,3 +109,4 @@ export const initializeDatabase = async () => {
     client.release();
   }
 };
+
