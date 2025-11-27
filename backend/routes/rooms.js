@@ -63,7 +63,7 @@ router.get('/', authenticateToken, async (req, res) => {
         ) as unread_count
       FROM rooms r
       JOIN room_members rm ON r.id = rm.room_id
-      WHERE rm.user_id = $1
+      WHERE rm.user_id = $1 AND COALESCE(rm.hidden, FALSE) = FALSE
       ORDER BY last_message_time DESC NULLS LAST, r.created_at DESC
     `, [userId]);
 
@@ -131,7 +131,12 @@ router.post('/direct', authenticateToken, async (req, res) => {
     `, [currentUserId, targetUserId]);
 
     if (existingRoom.rows.length > 0) {
-      // 기존 방이 있으면 해당 방 정보 반환
+      await pool.query(
+        'UPDATE room_members SET hidden = FALSE, cleared_at = NOW() WHERE room_id = $1 AND user_id = $2',
+        [existingRoom.rows[0].id, currentUserId]
+      );
+      joinUsersToRoom(existingRoom.rows[0].id, [currentUserId]);
+
       return res.json({
         success: true,
         message: '기존 채팅방을 찾았습니다.',
@@ -303,7 +308,7 @@ router.get('/:roomId', authenticateToken, async (req, res) => {
   try {
     // 사용자가 해당 방의 멤버인지 확인
     const memberCheck = await pool.query(
-      'SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2',
+      'SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2 AND COALESCE(hidden, FALSE) = FALSE',
       [roomId, userId]
     );
 
@@ -409,7 +414,7 @@ router.delete('/:roomId', authenticateToken, async (req, res) => {
       );
 
       await client.query(
-        'DELETE FROM room_members WHERE room_id = $1 AND user_id = $2',
+        'UPDATE room_members SET hidden = TRUE, cleared_at = NOW() WHERE room_id = $1 AND user_id = $2',
         [roomId, userId]
       );
       leaveUserFromRoom(roomId, userId);

@@ -48,6 +48,16 @@ export const initializeDatabase = async () => {
       )
     `);
 
+    await client.query(`
+      ALTER TABLE room_members
+      ADD COLUMN IF NOT EXISTS hidden BOOLEAN DEFAULT FALSE
+    `);
+
+    await client.query(`
+      ALTER TABLE room_members
+      ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMP
+    `);
+
     // rooms 테이블 생성
     await client.query(`
       CREATE TABLE IF NOT EXISTS rooms (

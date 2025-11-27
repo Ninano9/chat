@@ -13,7 +13,7 @@ router.get('/room/:roomId', authenticateToken, async (req, res) => {
   try {
     // 사용자가 해당 방의 멤버인지 확인
     const memberCheck = await pool.query(
-      'SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2',
+      'SELECT cleared_at FROM room_members WHERE room_id = $1 AND user_id = $2 AND COALESCE(hidden, FALSE) = FALSE',
       [roomId, userId]
     );
 
@@ -23,6 +23,8 @@ router.get('/room/:roomId', authenticateToken, async (req, res) => {
         message: '해당 채팅방에 접근할 권한이 없습니다.'
       });
     }
+
+    const clearedAt = memberCheck.rows[0].cleared_at;
 
     const offset = (page - 1) * limit;
 
@@ -49,17 +51,18 @@ router.get('/room/:roomId', authenticateToken, async (req, res) => {
       FROM messages m
       LEFT JOIN users u ON m.sender_id = u.id
       WHERE m.room_id = $1
+        AND ($5::timestamp IS NULL OR m.created_at > $5)
       ORDER BY m.created_at DESC
       LIMIT $3 OFFSET $4
-    `, [roomId, userId, limit, offset]);
+    `, [roomId, userId, limit, offset, clearedAt]);
 
     // 메시지를 시간순으로 정렬 (오래된 것부터)
     const messages = messagesResult.rows.reverse();
 
     // 전체 메시지 수 조회
     const countResult = await pool.query(
-      'SELECT COUNT(*) FROM messages WHERE room_id = $1',
-      [roomId]
+      'SELECT COUNT(*) FROM messages WHERE room_id = $1 AND ($2::timestamp IS NULL OR created_at > $2)',
+      [roomId, clearedAt]
     );
 
     const totalMessages = parseInt(countResult.rows[0].count);
@@ -99,7 +102,7 @@ router.post('/:messageId/read', authenticateToken, async (req, res) => {
       SELECT m.room_id, m.sender_id
       FROM messages m
       JOIN room_members rm ON m.room_id = rm.room_id
-      WHERE m.id = $1 AND rm.user_id = $2
+      WHERE m.id = $1 AND rm.user_id = $2 AND COALESCE(rm.hidden, FALSE) = FALSE
     `, [messageId, userId]);
 
     if (messageResult.rows.length === 0) {
@@ -148,7 +151,7 @@ router.post('/room/:roomId/read-all', authenticateToken, async (req, res) => {
   try {
     // 사용자가 해당 방의 멤버인지 확인
     const memberCheck = await pool.query(
-      'SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2',
+      'SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2 AND COALESCE(hidden, FALSE) = FALSE',
       [roomId, userId]
     );
 

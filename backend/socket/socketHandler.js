@@ -91,7 +91,7 @@ async function joinUserRooms(socket) {
       SELECT r.id
       FROM rooms r
       JOIN room_members rm ON r.id = rm.room_id
-      WHERE rm.user_id = $1
+      WHERE rm.user_id = $1 AND COALESCE(rm.hidden, FALSE) = FALSE
     `, [socket.user.id]);
 
     result.rows.forEach(room => {
@@ -117,7 +117,7 @@ async function handleSendMessage(socket, data, io) {
 
   // 사용자가 해당 방의 멤버인지 확인
   const memberCheck = await pool.query(
-    'SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2',
+    'SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2 AND COALESCE(hidden, FALSE) = FALSE',
     [roomId, userId]
   );
 
@@ -126,7 +126,57 @@ async function handleSendMessage(socket, data, io) {
     return;
   }
 
+  const roomInfo = await pool.query('SELECT type FROM rooms WHERE id = $1', [roomId]);
+
+  if (roomInfo.rows.length === 0) {
+    socket.emit('error', { message: '존재하지 않는 채팅방입니다.' });
+    return;
+  }
+
+  if (roomInfo.rows[0].type === '1:1') {
+    const participantResult = await pool.query(
+      'SELECT user_id FROM room_members WHERE room_id = $1',
+      [roomId]
+    );
+
+    if (participantResult.rows.length < 2) {
+      const missingUserResult = await pool.query(
+        'SELECT DISTINCT sender_id FROM messages WHERE room_id = $1 AND sender_id != $2 LIMIT 1',
+        [roomId, userId]
+      );
+
+      if (missingUserResult.rows.length > 0) {
+        const missingUserId = missingUserResult.rows[0].sender_id;
+        await pool.query(
+          `INSERT INTO room_members (room_id, user_id, hidden, cleared_at)
+           VALUES ($1, $2, FALSE, NOW())
+           ON CONFLICT (room_id, user_id) DO UPDATE SET hidden = FALSE, cleared_at = EXCLUDED.cleared_at`,
+          [roomId, missingUserId]
+        );
+        joinUsersToRoom(roomId, [missingUserId]);
+      }
+    }
+  }
+
+  const hiddenMembers = await pool.query(
+    'SELECT user_id FROM room_members WHERE room_id = $1 AND COALESCE(hidden, FALSE) = TRUE',
+    [roomId]
+  );
+
   const client = await pool.connect();
+
+  if (hiddenMembers.rows.length > 0) {
+    const rejoinIds = hiddenMembers.rows
+      .map(row => row.user_id)
+      .filter(id => id !== userId);
+    await pool.query(
+      'UPDATE room_members SET hidden = FALSE WHERE room_id = $1 AND COALESCE(hidden, FALSE) = TRUE',
+      [roomId]
+    );
+    if (rejoinIds.length > 0) {
+      joinUsersToRoom(roomId, rejoinIds);
+    }
+  }
   
   try {
     await client.query('BEGIN');
@@ -186,7 +236,7 @@ async function handleMarkAsRead(socket, data, io) {
     SELECT m.room_id, m.sender_id
     FROM messages m
     JOIN room_members rm ON m.room_id = rm.room_id
-    WHERE m.id = $1 AND rm.user_id = $2
+    WHERE m.id = $1 AND rm.user_id = $2 AND COALESCE(rm.hidden, FALSE) = FALSE
   `, [messageId, userId]);
 
   if (messageResult.rows.length === 0) {
@@ -223,7 +273,7 @@ async function handleMarkAsRead(socket, data, io) {
   });
 }
 
-export const joinUsersToRoom = (roomId, userIds = []) => {
+export function joinUsersToRoom(roomId, userIds = []) {
   if (!ioInstance) return;
 
   userIds.forEach((userId) => {
@@ -233,12 +283,12 @@ export const joinUsersToRoom = (roomId, userIds = []) => {
       socket.emit('room_joined', { roomId });
     }
   });
-};
+}
 
-export const leaveUserFromRoom = (roomId, userId) => {
+export function leaveUserFromRoom(roomId, userId) {
   const socket = connectedUsers.get(userId);
   if (socket) {
     socket.leave(`room_${roomId}`);
   }
-};
+}
 
