@@ -1,6 +1,5 @@
 <template>
   <div class="chat-container">
-    <!-- 사이드바 -->
     <div class="sidebar" :class="{ 'sidebar-mobile-open': isSidebarOpen }">
       <div class="sidebar-header">
         <div class="user-profile">
@@ -58,7 +57,6 @@
       </div>
     </div>
     
-    <!-- 메인 채팅 영역 -->
     <div class="chat-main">
       <!-- 모바일 헤더 -->
       <div class="mobile-header">
@@ -361,7 +359,7 @@ watch(() => chatStore.currentRoom, () => {
 <style scoped>
 .chat-container {
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
   background-color: #f5f5f5;
 }
 
@@ -372,6 +370,7 @@ watch(() => chatStore.currentRoom, () => {
   border-right: 1px solid #e1e5e9;
   display: flex;
   flex-direction: column;
+  height: 100vh;
 }
 
 .sidebar-header {
@@ -439,6 +438,7 @@ watch(() => chatStore.currentRoom, () => {
 .room-list {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .loading-rooms,
@@ -531,6 +531,7 @@ watch(() => chatStore.currentRoom, () => {
   display: flex;
   flex-direction: column;
   background: white;
+  height: 100vh;
 }
 
 .mobile-header {
@@ -569,6 +570,7 @@ watch(() => chatStore.currentRoom, () => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .chat-header {
@@ -593,6 +595,7 @@ watch(() => chatStore.currentRoom, () => {
   overflow-y: auto;
   padding: 20px;
   background: #f8f9fa;
+  min-height: 0;
 }
 
 .empty-messages {
