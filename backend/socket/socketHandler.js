@@ -62,6 +62,7 @@ export const initializeSocket = (server, corsOptions) => {
       socket.to(`room_${data.roomId}`).emit('user_typing', {
         userId: socket.user.id,
         nickname: socket.user.nickname,
+        roomId: data.roomId,
         isTyping: true
       });
     });
@@ -70,6 +71,7 @@ export const initializeSocket = (server, corsOptions) => {
       socket.to(`room_${data.roomId}`).emit('user_typing', {
         userId: socket.user.id,
         nickname: socket.user.nickname,
+        roomId: data.roomId,
         isTyping: false
       });
     });

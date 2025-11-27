@@ -313,15 +313,22 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   const handleUserTyping = (data) => {
+    if (!currentRoom.value || currentRoom.value.id !== data.roomId) {
+      return
+    }
+
     if (data.isTyping) {
       if (!typingUsers.value.find(u => u.userId === data.userId)) {
-        typingUsers.value.push(data)
+        typingUsers.value.push({
+          userId: data.userId,
+          nickname: data.nickname,
+          roomId: data.roomId
+        })
       }
     } else {
       typingUsers.value = typingUsers.value.filter(u => u.userId !== data.userId)
     }
     
-    // 3초 후 자동으로 타이핑 상태 제거
     setTimeout(() => {
       typingUsers.value = typingUsers.value.filter(u => u.userId !== data.userId)
     }, 3000)
