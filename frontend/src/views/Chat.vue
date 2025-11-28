@@ -741,7 +741,7 @@ watch(() => chatStore.currentRoom, () => {
 .messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 20px 20px 40px;
   background: #f8f9fa;
   min-height: 0;
 }
