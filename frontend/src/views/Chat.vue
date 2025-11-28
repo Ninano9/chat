@@ -517,7 +517,7 @@ watch(() => chatStore.currentRoom, () => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0ebac7 0%, #0b65c2 100%);
   color: white;
   display: flex;
   align-items: center;
@@ -597,7 +597,7 @@ watch(() => chatStore.currentRoom, () => {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0ebac7 0%, #0b65c2 100%);
   color: white;
   display: flex;
   align-items: center;
@@ -795,7 +795,7 @@ watch(() => chatStore.currentRoom, () => {
 }
 
 .message-mine .message-bubble {
-  background: #007bff;
+  background: linear-gradient(135deg, #0ebac7 0%, #0b65c2 100%);
   color: white;
 }
 
@@ -856,7 +856,7 @@ watch(() => chatStore.currentRoom, () => {
   width: 44px;
   height: 44px;
   border: none;
-  background: #007bff;
+  background: linear-gradient(135deg, #0ebac7 0%, #0b65c2 100%);
   color: white;
   border-radius: 50%;
   cursor: pointer;
@@ -867,7 +867,7 @@ watch(() => chatStore.currentRoom, () => {
 }
 
 .send-button:hover:not(:disabled) {
-  background: #0056b3;
+  background: linear-gradient(135deg, #0da9b4 0%, #0953a6 100%);
 }
 
 .send-button:disabled {

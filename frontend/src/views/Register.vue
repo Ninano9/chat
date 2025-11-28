@@ -157,7 +157,7 @@ const handleRegister = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0ebac7 0%, #0b65c2 100%);
   padding: 20px;
 }
 
@@ -213,8 +213,8 @@ const handleRegister = async () => {
 
 .form-control:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #0ebac7;
+  box-shadow: 0 0 0 3px rgba(14, 186, 199, 0.1);
 }
 
 .form-control.error {
@@ -232,7 +232,7 @@ const handleRegister = async () => {
   padding: 14px;
   font-size: 16px;
   font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0ebac7 0%, #0b65c2 100%);
   border: none;
   border-radius: 8px;
   color: white;
@@ -242,7 +242,7 @@ const handleRegister = async () => {
 
 .register-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(11, 101, 194, 0.35);
 }
 
 .register-btn:disabled {
@@ -257,7 +257,7 @@ const handleRegister = async () => {
 }
 
 .link {
-  color: #667eea;
+  color: #0b65c2;
   text-decoration: none;
   font-weight: 600;
 }

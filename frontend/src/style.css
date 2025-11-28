@@ -39,12 +39,13 @@ body {
 }
 
 .btn-primary {
-  background-color: #007bff;
+  background-image: linear-gradient(135deg, #0ebac7 0%, #0b65c2 100%);
   color: white;
+  box-shadow: 0 10px 20px rgba(14, 186, 199, 0.25);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-image: linear-gradient(135deg, #0da9b4 0%, #0953a6 100%);
 }
 
 .btn-secondary {
@@ -107,8 +108,8 @@ body {
 
 .form-control:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  border-color: #0ebac7;
+  box-shadow: 0 0 0 0.2rem rgba(14, 186, 199, 0.25);
 }
 
 .form-control.error {
