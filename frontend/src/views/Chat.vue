@@ -495,7 +495,8 @@ watch(() => chatStore.currentRoom, () => {
   border-right: 1px solid #e1e5e9;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
+  height: auto;
 }
 
 .sidebar-header {
@@ -656,7 +657,9 @@ watch(() => chatStore.currentRoom, () => {
   display: flex;
   flex-direction: column;
   background: white;
-  height: 100vh;
+  min-height: 100vh;
+  height: auto;
+  overflow-y: auto;
 }
 
 .mobile-header {
@@ -825,6 +828,8 @@ watch(() => chatStore.currentRoom, () => {
   padding: 20px;
   border-top: 1px solid #e1e5e9;
   background: white;
+  position: sticky;
+  bottom: 0;
 }
 
 .message-input {
@@ -1057,6 +1062,15 @@ watch(() => chatStore.currentRoom, () => {
   .modal {
     width: 95%;
     margin: 20px;
+  }
+}
+
+@media (max-height: 720px) {
+  .chat-main {
+    overflow-y: auto;
+  }
+  .message-input-container {
+    position: static;
   }
 }
 
