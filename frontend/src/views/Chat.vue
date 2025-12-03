@@ -121,8 +121,11 @@
                 <div class="message-text">{{ message.content }}</div>
                 <div class="message-time">
                   {{ formatMessageTime(message.createdAt || message.created_at) }}
-                  <span v-if="message.sender?.id === authStore.user?.id && message.readCount" class="read-count">
-                    읽음 {{ message.readCount }}
+                  <span
+                    v-if="message.sender?.id === authStore.user?.id && displayReadCount(message) > 0"
+                    class="read-count"
+                  >
+                    읽음 {{ displayReadCount(message) }}
                   </span>
                 </div>
               </div>
@@ -439,6 +442,14 @@ const formatMessageTime = (timestamp) => {
     hour: '2-digit', 
     minute: '2-digit' 
   })
+}
+
+const displayReadCount = (message) => {
+  if (!message) return 0
+  const base = message.readCount || 0
+  const subtract = message.isReadByMe ? 1 : 0
+  const result = base - subtract
+  return result > 0 ? result : 0
 }
 
 const confirmLeaveRoom = async () => {

@@ -4,8 +4,16 @@ import axios from 'axios'
 import { io } from 'socket.io-client'
 import { useAuthStore } from './auth'
 
-const normalizeMessage = (message, fallbackRoomId) => {
+const normalizeMessage = (message, fallbackRoomId, currentUserId) => {
   if (!message) return null
+
+  const readMarker = message.isReadByMe ?? message.is_read_by_me
+  const inferredRead =
+    readMarker !== undefined && readMarker !== null
+      ? Boolean(readMarker)
+      : (message.sender || message.sender_id) && currentUserId
+        ? (message.sender?.id ?? message.sender_id) === currentUserId
+        : false
 
   return {
     id: message.id,
@@ -20,7 +28,8 @@ const normalizeMessage = (message, fallbackRoomId) => {
           profileImage: message.sender_profile_image
         }
       : null),
-    readCount: message.readCount ?? message.read_count ?? 0
+    readCount: message.readCount ?? message.read_count ?? 0,
+    isReadByMe: inferredRead
   }
 }
 
@@ -34,6 +43,7 @@ export const useChatStore = defineStore('chat', () => {
   const isLoading = ref(false)
   const error = ref(null)
   const typingUsers = ref([])
+  const authStore = useAuthStore()
 
   // Getters
   const sortedRooms = computed(() => {
@@ -50,8 +60,6 @@ export const useChatStore = defineStore('chat', () => {
 
   // Actions
   const initializeSocket = () => {
-    const authStore = useAuthStore()
-    
     if (!authStore.token) return
 
     // 기존 연결이 있다면 정리
@@ -126,8 +134,8 @@ export const useChatStore = defineStore('chat', () => {
       const response = await axios.get(`/api/messages/room/${roomId}?page=${page}&limit=50`)
       
       if (response.data.success) {
-        const normalizedMessages = response.data.data.messages
-          .map(message => normalizeMessage(message, roomId))
+    const normalizedMessages = response.data.data.messages
+      .map(message => normalizeMessage(message, roomId, authStore.user?.id))
           .filter(Boolean)
 
         if (page === 1) {
@@ -272,14 +280,13 @@ export const useChatStore = defineStore('chat', () => {
   // 이벤트 핸들러
   const handleNewMessage = (messageData) => {
     // 현재 보고 있는 방의 메시지면 메시지 목록에 추가
-    const normalized = normalizeMessage(messageData)
+    const normalized = normalizeMessage(messageData, undefined, authStore.user?.id)
     if (!normalized) return
 
     if (currentRoom.value && currentRoom.value.id === normalized.roomId) {
       messages.value.push(normalized)
       
       // 자동으로 읽음 처리 (자신이 보낸 메시지가 아닌 경우)
-      const authStore = useAuthStore()
       if (normalized.sender && normalized.sender.id !== authStore.user.id) {
         markAsRead(normalized.id)
       }
@@ -293,7 +300,6 @@ export const useChatStore = defineStore('chat', () => {
       
       // 현재 보고 있는 방이 아니면 읽지 않은 메시지 수 증가
       if (!currentRoom.value || currentRoom.value.id !== normalized.roomId) {
-        const authStore = useAuthStore()
         if (normalized.sender && normalized.sender.id !== authStore.user.id) {
           room.unread_count = (room.unread_count || 0) + 1
         }
@@ -313,6 +319,9 @@ export const useChatStore = defineStore('chat', () => {
     const message = messages.value.find(m => m.id === data.messageId)
     if (message) {
       message.readCount = data.readCount
+      if (data.readBy?.id === authStore.user?.id) {
+        message.isReadByMe = true
+      }
     }
   }
 
